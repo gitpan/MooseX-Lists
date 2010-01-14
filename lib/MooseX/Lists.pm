@@ -1,7 +1,7 @@
-# $Id: Lists.pm,v 1.7 2010/01/14 08:39:20 dk Exp $
+# $Id: Lists.pm,v 1.10 2010/01/14 10:11:21 dk Exp $
 package MooseX::Lists;
 
-our $VERSION   = '0.03';
+our $VERSION   = '0.04';
 our $AUTHORITY = 'cpan:KARASIK';
 
 use strict;
@@ -24,6 +24,13 @@ sub ArrayRef
 	}
 }
 
+sub array_writer
+{
+	my $next = shift;
+	my $self = shift;
+	return $self->$next(\@_);
+}
+
 sub HashRef
 {
 	my $next = shift;
@@ -39,16 +46,26 @@ sub HashRef
 	}
 }
 
+sub hash_writer
+{
+	my $next = shift;
+	my $self = shift;
+	confess "Odd numbers ef elements in anonymous hash" if @_ % 2;
+	return $self->$next({@_});
+}
+
 sub has_list
 {
 	my ( $meta, $name, %options ) = @_;
 
-	my ( $accessor);
+	my ( $accessor,$writer);
 	if ( defined $options{isa}) {
 		if ( $options{isa} =~ /^ArrayRef/) {
 			$accessor = \&ArrayRef;
+			$writer   = \&array_writer;
 		} elsif ( $options{isa} =~ /^HashRef/) { 
 			$accessor = \&HashRef;
+			$writer   = \&hash_writer;
 		} else {
 			die "bad 'isa' option: must begin with either 'ArrayRef' or 'HashRef'";
 		}
@@ -62,9 +79,11 @@ sub has_list
 
 	# hook the accessors
 	my @accessors = 
-		grep { defined } map { $options{$_} } qw(reader writer accessor);
+		grep { defined } map { $options{$_} } qw(reader accessor);
 	@accessors = $name unless @accessors;
 	$meta-> add_around_method_modifier( $_, $accessor) for @accessors;
+	$meta-> add_around_method_modifier( $options{writer}, $writer)
+		if $options{writer};
 }
 
 Moose::Exporter-> setup_import_methods(
@@ -88,8 +107,8 @@ MooseX::Lists - treat arrays and hashes as lists
    use Moose;
    use MooseX::Lists;
 
-   has_list a => ( is => 'rw', isa => 'Array');
-   has_list h => ( is => 'rw', isa => 'Hash' );
+   has_list a => ( is => 'rw', isa => 'ArrayRef');
+   has_list h => ( is => 'rw', isa => 'HashRef' );
 
    has_list same_as_a => ( is => 'rw' );
 
@@ -99,6 +118,14 @@ MooseX::Lists - treat arrays and hashes as lists
    	a => [1,2,3],
 	h => { a => 1, b => 2 }
    );
+
+
+=head2 Mixed list/scalar context
+
+   has_list a => ( is => 'rw', isa => 'ArrayRef');
+   has_list h => ( is => 'rw', isa => 'HashRef' );
+
+   ...
 
    my @list   = $s-> a;     # ( 1 2 3 )
    my $scalar = $s-> a;     # [ 1 2 3 ]
@@ -115,9 +142,56 @@ MooseX::Lists - treat arrays and hashes as lists
    $s-> h({1,2,3,4});       # 1 2 3 4
    $s-> h({});              # empty hash
 
+=head2 Separated list/scalar context
+
+   has_list a => ( 
+   	is  => 'rw', 
+	isa => 'ArrayRef',
+	writer  => 'wa',
+	clearer => 'ca',
+	);
+   has_list h => ( 
+   	is  => 'rw', 
+	isa => 'HashRef',
+	writer  => 'wh',
+	clearer => 'ch',
+	);
+
+    ...
+
+   # reading part is identical to the above
+
+   $s-> wa(1,2,3);          # 1 2 3
+   $s-> wa([1,2,3]);        # [1 2 3]
+   $s-> wa();               # empty array
+   $s-> ca();               # empty array
+   $s-> wa([]);             # []
+
+   $s-> wh(1,2,3,4);        # 1 2 3 4
+   $s-> wh({1,2,3,4});      # error, odd number of elements
+   $s-> wh();               # empty hash
+   $s-> ch();               # empty hash
+
+
 =head1 DESCRIPTION
 
-Provides asymmetric list access for arrays and hashes
+Provides asymmetric list access for arrays and hashes.
+
+The problem this module tries to solve is to provide an acceptable API for
+setting and accessing array and hash properties in list context.  The problem
+in implementing such interface is when a handler accepts both arrays and
+arrayrefs, how to set an empty array, and differentiate between a set-call with
+an empty list or a get-call. Depending on the way a method is declared, two
+different setting modes are proposed.
+
+The first method, when C<writer> is not explictly set (default), tries
+to deduce if it needs to dereference the arguments. It does so by checking
+if the argument is an arrayref. This means that the only way to clear an
+array or hash it to call it with C<[]> or C<{}>, respectively.
+
+The second method is turned on if C<writer> was explicitly specified, which
+means that if it is called with no arguments, this means an empty list.
+This method never dereferences array- and hashrefs.
 
 =head1 METHODS
 
@@ -136,22 +210,26 @@ context.  See below for details.
 =item ArrayRef
 
 In get-mode, behaves like C<auto_deref>: in scalar context, returns direct
-reference to the array, list context, returns defereenced array.
+reference to the array; in the list context, returns defererenced array.
 
-In set-mode behaves asymmetrically: if passed one argument, and this
-argument is an arrayref, treats it as an arrayref, otherwise dereferences
-the arguments and creates a new arrayref, which is stored internally.
-I.e. the only way to clear the array is to call C< ->method([]) >.
+In set-mode without C<writer> specified, behaves asymmetrically: if passed one
+argument, and this argument is an arrayref, treats it as an arrayref, otherwise
+dereferences the arguments and creates a new arrayref, which is stored
+internally.  I.e. the only way to clear the array is to call C< ->method([]) >.
+
+In set-mode with C<writer> specified always treats input as a list.
 
 =item HashRef
 
 In get-mode, behaves like C<auto_deref>: in scalar context, returns direct
-reference to the hash, list context, returns defereenced hash.
+reference to the hash; in the list context, returns defereenced hash.
 
-In set-mode behaves asymmetrically: if passed one argument, and this
-argument is a hashref, treats it as a hashref, otherwise dereferences
-the arguments and creates a new hashref, which is stored internally.
-I.e. the only way to clear the hash is to call C< ->method({}) >.
+In set-mode without C<writer> specified behaves asymmetrically: if passed one
+argument, and this argument is a hashref, treats it as a hashref, otherwise
+dereferences the arguments and creates a new hashref, which is stored
+internally.  I.e. the only way to clear the hash is to call C< ->method({}) >.
+
+In set-mode with C<writer> specified always treats input as a list.
 
 =back
 

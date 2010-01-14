@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name:                MooseX-Lists
-version:             0.03
+version:             0.04
 abstract:            treat arrays and hashes as lists
 license:             ~
 author:              

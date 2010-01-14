@@ -1,15 +1,16 @@
 #! /usr/bin/perl
-# $Id: 03-list.t,v 1.1 2010/01/13 22:07:14 dk Exp $
+# $Id: 03-list.t,v 1.2 2010/01/14 08:00:01 dk Exp $
 
 use strict;
 use warnings;
 
 use Moose;
 use MooseX::Lists;
-use Test::More tests => 17;
+use Test::More tests => 19;
 
-has_list ar => (isa => 'Array', is => 'rw');
-has_list hr => (isa => 'Hash',  is => 'rw');
+has_list ar => (isa => 'ArrayRef', is => 'rw');
+has_list hr => (isa => 'HashRef',  is => 'rw');
+has_list aa => (is => 'rw');
 
 my $x = main-> new;
 ok($x, "object");
@@ -40,3 +41,6 @@ $x-> hr({});
 ok( '' eq join('', sort $x->hr),             "hr.empty/array");
 ok( '' eq join('', sort %{scalar $x->hr}),   "hr.empty/scalar");
 
+$x = main-> new( aa => [1,2,3]);
+ok( 123 eq join('', $x->aa),           "aa.new/array");
+ok( 123 eq join('', @{scalar $x->aa}), "aa.new/scalar");

@@ -1,15 +1,16 @@
-# $Id: Lists.pm,v 1.2 2010/01/13 22:10:03 dk Exp $
+# $Id: Lists.pm,v 1.6 2010/01/14 08:03:45 dk Exp $
 package MooseX::Lists;
 
-our $VERSION   = '0.01';
+our $VERSION   = '0.02';
 our $AUTHORITY = 'cpan:KARASIK';
 
 use strict;
 use warnings;
+use Carp;
 use Moose ();
 use Moose::Exporter;
 
-sub Array
+sub ArrayRef
 {
 	my $next = shift;
 	my $self = shift;
@@ -23,13 +24,14 @@ sub Array
 	}
 }
 
-sub Hash
+sub HashRef
 {
 	my $next = shift;
 	my $self = shift;
 	if ( 1 == @_ and $_[0] and ref($_[0]) eq 'HASH') {
 		return $self->$next(@_);
 	} elsif ( @_ ) {
+		confess "Odd numbers ef elements in anonymous hash" if @_ % 2;
 		return $self->$next({@_});
 	} else {
 		my $r = $self-> $next;
@@ -43,16 +45,15 @@ sub has_list
 
 	my $accessor;
 	if ( defined $options{isa}) {
-		if ( $options{isa} eq 'Array') {
-			$accessor = \&Array;
-		} elsif ( $options{isa} eq 'Hash') { 
-			$accessor = \&Hash;
+		if ( $options{isa} =~ /^ArrayRef/) {
+			$accessor = \&ArrayRef;
+		} elsif ( $options{isa} =~ /^HashRef/) { 
+			$accessor = \&HashRef;
 		} else {
-			die "bad 'isa' option: must be either 'Array' or 'Hash";
+			die "bad 'isa' option: must begin with either 'ArrayRef' or 'HashRef'";
 		}
-		delete $options{isa};
 	} else {
-		$accessor = \&array_ref;
+		$accessor = \&ArrayRef;
 	}
 
 	$meta-> add_attribute($name, %options);
@@ -110,7 +111,7 @@ MooseX::Lists - treat arrays and hashes as lists
 
 =head1 DESCRIPTION
 
-Provides asymmetric list access for arrays and hashes. 
+Provides asymmetric list access for arrays and hashes
 
 =head1 METHODS
 
@@ -118,15 +119,15 @@ Provides asymmetric list access for arrays and hashes.
 
 =item has_list
 
-Replacement for C<has>, with exactly same syntax, expect for C<isa>,
-which can be either C<Array> or C<Hash>. C<[]> notation is not supported.
+Replacement for C<has>, with exactly same syntax, expect for C<isa>, which must
+begin either with C<ArrayRef> or C<HashRef>. If C<isa> is omitted, array 
+is assumed.
 
-When a method is declared with C<has_list>, internally it is a normal
-perl array or hash (Moose's C<ArrayRef> and C<HashRef> don't apply).
-The method behaves differently if called in scalar or list context.
-See below for details.
+When a method is declared with C<has_list>, internally it is a normal perl
+array or hash. The method behaves differently if called in scalar or list
+context.  See below for details.
 
-=item Array
+=item ArrayRef
 
 In get-mode, behaves like C<auto_deref>: in scalar context, returns direct
 reference to the array, list context, returns defereenced array.
@@ -136,7 +137,7 @@ argument is an arrayref, treats it as an arrayref, otherwise dereferences
 the arguments and creates a new arrayref, which is stored internally.
 I.e. the only way to clear the array is to call C< ->method([]) >.
 
-=item Hash
+=item HashRef
 
 In get-mode, behaves like C<auto_deref>: in scalar context, returns direct
 reference to the hash, list context, returns defereenced hash.
@@ -148,12 +149,17 @@ I.e. the only way to clear the hash is to call C< ->method({}) >.
 
 =back
 
+=head1 COMPATIBILITY
+
+The module won't work when methods declared with C<has_list> are equipped
+with custom readers, writers, clearers etc. Patches are welcome.
+
 =head1 AUTHOR
 
 Dmitry Karasik, E<lt>dmitry@karasik.eu.orgE<gt>.
 
 =head1 THANKS
 
-Karen Etheridge, Jesse Luehrs.
+Karen Etheridge, Jesse Luehrs, Stevan Little.
 
 =cut

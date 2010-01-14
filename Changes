@@ -3,3 +3,6 @@
 
 0.02 - Jan 14 2010
 	minor bugs fixed, isa not overloaded
+
+0.02 - Jan 14 2010
+	adapted for custom writer/reader/accessor/clearer and is=>bare

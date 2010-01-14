@@ -1,7 +1,7 @@
-# $Id: Lists.pm,v 1.6 2010/01/14 08:03:45 dk Exp $
+# $Id: Lists.pm,v 1.7 2010/01/14 08:39:20 dk Exp $
 package MooseX::Lists;
 
-our $VERSION   = '0.02';
+our $VERSION   = '0.03';
 our $AUTHORITY = 'cpan:KARASIK';
 
 use strict;
@@ -20,7 +20,7 @@ sub ArrayRef
 		return $self->$next(\@_);
 	} else {
 		my $r = $self-> $next;
-		return wantarray ? @$r : $r;
+		return wantarray ? ( $r ? @$r : ()) : $r;
 	}
 }
 
@@ -35,7 +35,7 @@ sub HashRef
 		return $self->$next({@_});
 	} else {
 		my $r = $self-> $next;
-		return wantarray ? %$r : $r;
+		return wantarray ? ( $r ? %$r : ()) : $r;
 	}
 }
 
@@ -43,7 +43,7 @@ sub has_list
 {
 	my ( $meta, $name, %options ) = @_;
 
-	my $accessor;
+	my ( $accessor);
 	if ( defined $options{isa}) {
 		if ( $options{isa} =~ /^ArrayRef/) {
 			$accessor = \&ArrayRef;
@@ -57,13 +57,19 @@ sub has_list
 	}
 
 	$meta-> add_attribute($name, %options);
-	$meta-> add_around_method_modifier( $name, $accessor);
+
+	return if defined $options{is} and $options{is} eq 'bare';
+
+	# hook the accessors
+	my @accessors = 
+		grep { defined } map { $options{$_} } qw(reader writer accessor);
+	@accessors = $name unless @accessors;
+	$meta-> add_around_method_modifier( $_, $accessor) for @accessors;
 }
 
 Moose::Exporter-> setup_import_methods(
       with_meta => [ 'has_list' ],
 );
-
 
 1;
 
@@ -148,11 +154,6 @@ the arguments and creates a new hashref, which is stored internally.
 I.e. the only way to clear the hash is to call C< ->method({}) >.
 
 =back
-
-=head1 COMPATIBILITY
-
-The module won't work when methods declared with C<has_list> are equipped
-with custom readers, writers, clearers etc. Patches are welcome.
 
 =head1 AUTHOR
 

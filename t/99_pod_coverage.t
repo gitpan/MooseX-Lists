@@ -11,4 +11,4 @@ plan skip_all => 'Test::Pod::Coverage required for testing POD coverage'
      if $@;
 
 plan tests => 1;
-pod_coverage_ok( 'MooseX::Lists', { trustme => [qr/^(array_writer|hash_writer)$/] });
+pod_coverage_ok( 'MooseX::Lists', { trustme => [qr/^(array_writer|hash_writer|anon_hash|anon_array)$/] });

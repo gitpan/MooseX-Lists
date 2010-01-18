@@ -1,7 +1,7 @@
-# $Id: Lists.pm,v 1.10 2010/01/14 10:11:21 dk Exp $
+# $Id: Lists.pm,v 1.12 2010/01/17 09:31:08 dk Exp $
 package MooseX::Lists;
 
-our $VERSION   = '0.04';
+our $VERSION   = '0.05';
 our $AUTHORITY = 'cpan:KARASIK';
 
 use strict;
@@ -54,24 +54,33 @@ sub hash_writer
 	return $self->$next({@_});
 }
 
+sub anon_hash  {{}}
+sub anon_array {[]}
+
 sub has_list
 {
 	my ( $meta, $name, %options ) = @_;
 
-	my ( $accessor,$writer);
+	my ( $accessor,$writer,$default);
 	if ( defined $options{isa}) {
 		if ( $options{isa} =~ /^ArrayRef/) {
 			$accessor = \&ArrayRef;
 			$writer   = \&array_writer;
+			$default  = \&anon_array;
 		} elsif ( $options{isa} =~ /^HashRef/) { 
 			$accessor = \&HashRef;
 			$writer   = \&hash_writer;
+			$default  = \&anon_hash;
 		} else {
 			die "bad 'isa' option: must begin with either 'ArrayRef' or 'HashRef'";
 		}
 	} else {
 		$accessor = \&ArrayRef;
+		$writer   = \&array_writer;
+		$default  = \&anon_array;
 	}
+
+	$options{default} = $default unless defined $options{default};
 
 	$meta-> add_attribute($name, %options);
 
@@ -87,7 +96,7 @@ sub has_list
 }
 
 Moose::Exporter-> setup_import_methods(
-      with_meta => [ 'has_list' ],
+      with_meta         => [ 'has_list' ],
 );
 
 1;
@@ -215,7 +224,7 @@ reference to the array; in the list context, returns defererenced array.
 In set-mode without C<writer> specified, behaves asymmetrically: if passed one
 argument, and this argument is an arrayref, treats it as an arrayref, otherwise
 dereferences the arguments and creates a new arrayref, which is stored
-internally.  I.e. the only way to clear the array is to call C< ->method([]) >.
+internally.  I.e. the only way to clear the array is to call C<< ->method([]) >>.
 
 In set-mode with C<writer> specified always treats input as a list.
 
@@ -227,7 +236,7 @@ reference to the hash; in the list context, returns defereenced hash.
 In set-mode without C<writer> specified behaves asymmetrically: if passed one
 argument, and this argument is a hashref, treats it as a hashref, otherwise
 dereferences the arguments and creates a new hashref, which is stored
-internally.  I.e. the only way to clear the hash is to call C< ->method({}) >.
+internally.  I.e. the only way to clear the hash is to call C<< ->method({}) >>.
 
 In set-mode with C<writer> specified always treats input as a list.
 

@@ -6,7 +6,7 @@ use warnings;
 
 use Moose;
 use MooseX::Lists;
-use Test::More tests => 19;
+use Test::More tests => 21;
 
 has_list ar => (isa => 'ArrayRef', is => 'rw');
 has_list hr => (isa => 'HashRef',  is => 'rw');
@@ -44,3 +44,5 @@ ok( '' eq join('', sort %{scalar $x->hr}),   "hr.empty/scalar");
 $x = main-> new( aa => [1,2,3]);
 ok( 123 eq join('', $x->aa),           "aa.new/array");
 ok( 123 eq join('', @{scalar $x->aa}), "aa.new/scalar");
+ok( $x-> hr =~ /HASH/, 'uninit hash exists');
+ok( $x-> ar =~ /ARRAY/, 'uninit array exists');
